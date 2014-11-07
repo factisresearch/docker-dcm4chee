@@ -4,10 +4,49 @@
 FROM ubuntu:12.04
 MAINTAINER AI Analysis, Inc <admin@aianalysis.com>
 
-# Load the stage folder, which contains the setup scripts.
-#
-ADD stage stage
-RUN chmod 755 stage/*.bash
-RUN cd stage; ./setup.bash
+# Install dependencies
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install -y curl zip mysql-client openjdk-6-jdk vim less
 
-CMD ["stage/start.bash"]
+
+# Configure environment
+ENV DCM4CHEE_HOME /opt/dcm4chee
+RUN mkdir -p $DCM4CHEE_HOME
+WORKDIR $DCM4CHEE_HOME
+
+# Download the binary packages
+RUN curl -G http://colocrossing.dl.sourceforge.net/project/jboss/JBoss/JBoss-4.2.3.GA/jboss-4.2.3.GA-jdk6.zip -o jboss-4.2.3.GA-jdk6.zip
+RUN curl -G http://colocrossing.dl.sourceforge.net/project/dcm4che/dcm4chee/2.17.1/dcm4chee-2.17.1-mysql.zip -o dcm4chee-2.17.1-mysql.zip
+RUN curl -G http://colocrossing.dl.sourceforge.net/project/dcm4che/dcm4chee-arr/3.0.11/dcm4chee-arr-3.0.11-mysql.zip -o dcm4chee-arr-3.0.11-mysql.zip
+
+# Extract the binary packages
+RUN find -name "*.zip" -exec unzip {} \; -delete
+RUN find -type d -exec chmod 755 {} \;
+
+# Configure environment
+ENV JAVA_HOME   /usr/lib/jvm/java-6-openjdk-amd64
+ENV JBOSS_DIR   $DCM4CHEE_HOME/jboss-4.2.3.GA
+ENV DCM_DIR     $DCM4CHEE_HOME/dcm4chee-2.17.1-mysql
+ENV ARR_DIR     $DCM4CHEE_HOME/dcm4chee-arr-3.0.11-mysql
+
+# The ARR setup script needs to be patched and
+# patch the JPEGImageEncoder issue for the WADO service
+RUN sed -i 's/type=/engine=/g' $ARR_DIR/sql/dcm4chee-arr-mysql.ddl
+RUN sed -i -e 's/value="com.sun.media.imageioimpl.plugins.jpeg.CLibJPEGImageWriter"/value="com.sun.image.codec.jpeg.JPEGImageEncoder"/g' $DCM_DIR/server/default/conf/xmdesc/dcm4chee-wado-xmbean.xml
+
+# Copy files from JBoss to dcm4chee
+RUN $DCM_DIR/bin/install_jboss.sh jboss-4.2.3.GA
+
+# Copy files from the Audit Record Repository (ARR) to dcm4chee
+RUN $DCM_DIR/bin/install_arr.sh dcm4chee-arr-3.0.11-mysql
+
+
+# Patch datasource of ARR and PACS to connect to the mysql host
+RUN sed -i 's/localhost:3306/mysql:3306/g' $DCM_DIR/server/default/deploy/pacs-mysql-ds.xml
+RUN sed -i 's/localhost:3306/mysql:3306/g' $DCM_DIR/server/default/deploy/arr-mysql-ds.xml
+
+
+# Load the stage folder, which contains the setup scripts.
+COPY stage/ $DCM4CHEE_HOME
+RUN chmod 755 $DCM4CHEE_HOME/*.bash
+

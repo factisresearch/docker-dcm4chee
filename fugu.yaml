@@ -1,0 +1,43 @@
+--- # DCM4CHEE - Open source picture archive and communications server (PACS)
+
+enter:
+    image:          *image-name
+    rm:             true
+    tty:            true
+    interactive:    true
+    command:        /bin/bash
+
+jboss:
+    name:       pacs-jboss
+    image:      &image-name dcm4chee
+    detach:     true
+    link:
+        - pacs-mysql:mysql
+    expose:
+        - 8009
+        - 8080
+        - 8443
+        - 2575
+        - 11112
+    publish:
+        - 8080:8080
+        - 11112:11112
+    command:    ./start.bash
+
+jboss-init:
+    image:      *image-name
+    rm:         true
+    link:
+        - pacs-mysql:mysql
+    env:
+        - MYSQL_ROOT_PASSWORD=mysql
+    command:    ./setup.bash
+
+mysql:
+    image:      mysql:5.5
+    name:       pacs-mysql
+    detach:     true
+    env:
+        - MYSQL_ROOT_PASSWORD=mysql
+
+...
