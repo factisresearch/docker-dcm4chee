@@ -11,12 +11,12 @@ The containers can be easily created via the docker-run wrapper [fugu](https://g
 
 Once built, we need to get a MySQL server running and initialize the required database tables:
 
-    fugu run mysql
-    fugu run jboss-init
+    fugu run daemon-mysql
+    fugu run init
 
 Now, run the 'dcm4chee' image is run as follows:
 
-    fugu run jboss
+    fugu run daemon-jboss
 
 Note that two ports must be mapped. Port 8080 is used by the DCM4CHEE web UI, while port 11112 is the DICOM port through which PACS workstations can perform DICOM network actions such as searching the archive, and downloading and uploading medical images. Have a look at the `fugu.yaml` file that defines the current port mapping.
 

@@ -1,0 +1,40 @@
+#!/bin/bash
+
+declare -a fugu_labels=(
+    daemon-mysql
+    daemon-jboss
+)
+
+function up() {
+    for label in "${1-${fugu_labels[@]}}"; do
+        fugu run "$label"
+    done
+}
+
+function down() {
+    for label in "${1-${fugu_labels[@]}}"; do
+        fugu destroy "$label"
+    done | tac
+}
+
+case $1 in
+    down)
+        down
+        ;;
+    up)
+        up
+        ;;
+    reset)
+        down
+        down data
+        up data
+        up daemon-mysql
+        sleep 5
+        up init
+        up daemon-jboss
+        ;;
+    *)
+        echo "usage: $(basename $0) [up|down|reset]"
+        exit 1
+        ;;
+esac

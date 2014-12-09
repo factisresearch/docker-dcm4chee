@@ -1,42 +1,65 @@
 --- # DCM4CHEE - Open source picture archive and communications server (PACS)
 
-enter:
-    image:          *image-name
-    rm:             true
-    tty:            true
-    interactive:    true
-    command:        /bin/bash
+shell:
+    _cfg_service: &cfg-default-service
+        image:          dcm4chee
+        detach:         true
+        tty:            true
+        restart:        'always'
+    _cfg_data: &cfg-default-data
+        command:        sleep
+        args:
+            - infinity
+    _cfg_shell: &cfg-default-shell
+        detach:         false
+        interactive:    true
+        tty:            true
+        rm:             true
+        restart:        'no'
+        command:        bash
+    <<: *cfg-default-service
+    <<: *cfg-default-shell
+    volumes-from:
+        - pacs-data
 
-jboss:
-    name:       pacs-jboss
-    image:      &image-name dcm4chee
-    detach:     true
-    link:
-        - pacs-mysql:mysql
-    expose:
-        - 8009
-        - 8080
-        - 8443
-        - 2575
-        - 11112
-    publish:
-        - 8080:8080
-        - 11112:11112
-    command:    ./start.bash
+data:
+    <<: *cfg-default-service
+    <<: *cfg-default-data
+    name: pacs-data
+    volume:
+        - /var/lib/mysql
 
-jboss-init:
-    image:      *image-name
-    rm:         true
+init:
+    <<: *cfg-default-service
+    <<: *cfg-default-shell
     link:
         - pacs-mysql:mysql
     env:
         - MYSQL_ROOT_PASSWORD=mysql
-    command:    ./setup.bash
+    command: ./setup.bash
 
-mysql:
-    image:      mysql:5.5
-    name:       pacs-mysql
-    detach:     true
+
+daemon-jboss:
+    <<: *cfg-default-service
+    name: pacs-jboss
+    volumes-from:
+        - pacs-data
+    link:
+        - pacs-mysql:mysql
+    env:
+        - SERVICES=pacs:8080/tcp
+    publish:
+        - 8080
+        - 11112:11112
+    command: ./start.bash
+
+
+daemon-mysql:
+    <<: *cfg-default-service
+    name: pacs-mysql
+    image: mysql:5.5
+    volumes-from:
+        - pacs-data
     env:
         - MYSQL_ROOT_PASSWORD=mysql
 
